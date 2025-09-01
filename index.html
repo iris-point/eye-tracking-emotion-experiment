@@ -593,6 +593,149 @@
     <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@2.0.0"></script>
     
     <script>
+        // Custom 9-point rating scale plugin
+        var jsPsychCustomRatingScale = (function () {
+            'use strict';
+
+            const info = {
+                name: 'custom-rating-scale',
+                version: '1.0.0',
+                parameters: {
+                    question: {
+                        type: 'HTML_STRING',
+                        default: '请评价您当前的情绪强度'
+                    },
+                    labels: {
+                        type: 'OBJECT',
+                        default: {
+                            1: '非常弱',
+                            5: '中等',
+                            9: '非常强'
+                        }
+                    },
+                    instruction: {
+                        type: 'STRING',
+                        default: '请点击选择1-9之间的数字'
+                    },
+                    button_label: {
+                        type: 'STRING',
+                        default: '确认评分'
+                    },
+                    name: {
+                        type: 'STRING',
+                        default: 'rating'
+                    },
+                    data: {
+                        type: 'OBJECT',
+                        default: {}
+                    }
+                }
+            };
+
+            class CustomRatingScalePlugin {
+                constructor(jsPsych) {
+                    this.jsPsych = jsPsych;
+                }
+
+                trial(display_element, trial) {
+                    // Build the HTML
+                    let html = `
+                        <div class="custom-rating-scale">
+                            <h2 class="rating-title">${trial.question}</h2>
+                            <div class="rating-scale-container">
+                                <div class="scale-items">`;
+                    
+                    for (let num = 1; num <= 9; num++) {
+                        const label = trial.labels[num] || '';
+                        html += `
+                            <div class="scale-item" data-value="${num}">
+                                <div class="scale-radio-row">
+                                    <input type="radio" name="${trial.name}" value="${num}" id="${trial.name}_${num}" class="scale-radio">
+                                </div>
+                                <div class="scale-number-row">
+                                    <span class="scale-number">${num}</span>
+                                </div>
+                                <div class="scale-label-row">
+                                    <span class="scale-label">${label}</span>
+                                </div>
+                            </div>`;
+                    }
+                    
+                    html += `
+                                </div>
+                            </div>
+                            <div class="rating-instruction">${trial.instruction}</div>
+                            <div class="rating-confirm-container">
+                                <button id="confirm-rating-btn" class="confirm-rating-button" disabled>
+                                    ${trial.button_label}
+                                </button>
+                            </div>
+                        </div>`;
+
+                    display_element.innerHTML = html;
+
+                    // Variables to track selection and timing
+                    let selectedRating = null;
+                    const startTime = performance.now();
+
+                    // Add click handlers to scale items
+                    display_element.querySelectorAll('.scale-item').forEach(item => {
+                        item.addEventListener('click', function() {
+                            const value = parseInt(this.dataset.value);
+                            
+                            // Check the radio button
+                            display_element.querySelector(`#${trial.name}_${value}`).checked = true;
+                            
+                            // Remove previous selection
+                            display_element.querySelectorAll('.scale-item').forEach(el => {
+                                el.classList.remove('selected');
+                            });
+                            
+                            // Add selection to clicked item
+                            this.classList.add('selected');
+                            selectedRating = value;
+                            
+                            // Enable the confirm button
+                            const confirmBtn = display_element.querySelector('#confirm-rating-btn');
+                            confirmBtn.disabled = false;
+                            confirmBtn.classList.add('enabled');
+                        });
+                    });
+
+                    // Add click handler to confirm button
+                    const confirmBtn = display_element.querySelector('#confirm-rating-btn');
+                    confirmBtn.addEventListener('click', () => {
+                        if (selectedRating !== null) {
+                            end_trial();
+                        }
+                    });
+
+                    // Function to end trial
+                    const end_trial = () => {
+                        // Clear display
+                        display_element.innerHTML = '';
+
+                        // Save data
+                        const trial_data = {
+                            rt: performance.now() - startTime,
+                            response: selectedRating,
+                            question: trial.question,
+                            ...trial.data
+                        };
+
+                        // End trial
+                        this.jsPsych.finishTrial(trial_data);
+                    };
+                }
+            }
+
+            CustomRatingScalePlugin.info = info;
+
+            return CustomRatingScalePlugin;
+        })();
+    </script>
+    
+    <script>
         // jsPsych v8 - initJsPsych and plugins are available globally
         
         // ====================================
@@ -727,15 +870,10 @@
                 stimulus: `
                     <div class="text-instruction" style="flex-direction: column;">
                         <div style="font-size: 72px;">${strategy}</div>
-                        <div class="instruction-ready">
-                            准备好后，按任意键继续
-                        </div>
-                        <div style="margin-top: 30px; font-size: 20px; opacity: 0.8;">
-                            按任意键继续
-                        </div>
                     </div>
                 `,
-                choices: 'ALL_KEYS',
+                choices: 'NO_KEYS',
+                trial_duration: 3000,
                 data: {
                     trial_type: 'strategy_instruction',
                     strategy: strategy,
@@ -779,83 +917,22 @@
         
         function createRatingScale(imageName, strategy, blockNumber) {
             return {
-                type: jsPsychHtmlButtonResponse,
-                stimulus: `
-                    <div class="custom-rating-scale">
-                        <h2 class="rating-title">请评价您当前的情绪强度</h2>
-                        <div class="rating-scale-container">
-                            <div class="scale-items">
-                                ${[1,2,3,4,5,6,7,8,9].map(num => {
-                                    let label = '';
-                                    if (num === 1) label = '非常弱';
-                                    else if (num === 5) label = '中等';
-                                    else if (num === 9) label = '非常强';
-                                    
-                                    return `
-                                        <div class="scale-item" onclick="selectRating(${num})">
-                                            <div class="scale-radio-row">
-                                                <input type="radio" name="emotion_rating" value="${num}" id="rating_${num}" class="scale-radio">
-                                            </div>
-                                            <div class="scale-number-row">
-                                                <span class="scale-number">${num}</span>
-                                            </div>
-                                            <div class="scale-label-row">
-                                                <span class="scale-label">${label}</span>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                        <div class="rating-instruction">请点击选择1-9之间的数字</div>
-                        <div class="rating-confirm-container">
-                            <button id="confirm-rating-btn" class="confirm-rating-button" onclick="confirmRating()" disabled>
-                                确认评分
-                            </button>
-                        </div>
-                    </div>
-                `,
-                choices: [],
-                button_html: '',
+                type: jsPsychCustomRatingScale,
+                question: '请评价您当前的情绪强度',
+                labels: {
+                    1: '非常弱',
+                    5: '中等',
+                    9: '非常强'
+                },
+                instruction: '请点击选择1-9之间的数字',
+                button_label: '确认评分',
+                name: 'emotion_rating',
                 data: {
                     trial_type: 'rating',
                     strategy: strategy,
                     image_name: imageName,
                     block_number: blockNumber,
                     trial_phase: 'rating'
-                },
-                on_load: function() {
-                    // Add click handlers and manage selection
-                    window.selectedRating = null;
-                    const startTime = performance.now();
-                    
-                    window.selectRating = function(value) {
-                        // Check the radio button
-                        document.getElementById(`rating_${value}`).checked = true;
-                        
-                        // Remove previous selection
-                        document.querySelectorAll('.scale-item').forEach(item => {
-                            item.classList.remove('selected');
-                        });
-                        
-                        // Add selection to clicked item
-                        document.getElementById(`rating_${value}`).closest('.scale-item').classList.add('selected');
-                        window.selectedRating = value;
-                        
-                        // Enable the confirm button
-                        const confirmBtn = document.getElementById('confirm-rating-btn');
-                        confirmBtn.disabled = false;
-                        confirmBtn.classList.add('enabled');
-                    };
-                    
-                    window.confirmRating = function() {
-                        if (window.selectedRating !== null) {
-                            jsPsych.finishTrial({
-                                emotion_intensity: window.selectedRating,
-                                rt: performance.now() - startTime
-                            });
-                        }
-                    };
                 }
             };
         }
@@ -1087,74 +1164,25 @@
             
             // Rating scale practice/instruction - interactive scale
             timeline.push({
-                type: jsPsychHtmlButtonResponse,
-                stimulus: `
-                    <div class="custom-rating-scale">
-                        <h2 class="rating-title">评分练习</h2>
-                        <p style="font-size: 20px; color: #ccc; margin-bottom: 40px;">请使用下面的量表进行评分，然后点击继续</p>
-                        <p style="font-size: 24px; color: white; margin-bottom: 40px;">在进行情绪调节之后，你现在的消极情绪有多少？</p>
-                        <div class="rating-scale-container">
-                            <div class="scale-items">
-                                ${[1,2,3,4,5,6,7,8,9].map(num => {
-                                    let label = '';
-                                    if (num === 1) label = '几乎没有';
-                                    else if (num === 5) label = '中等';
-                                    else if (num === 9) label = '有非常多';
-                                    
-                                    return `
-                                        <div class="scale-item" onclick="selectPracticeRating(${num})">
-                                            <div class="scale-radio-row">
-                                                <input type="radio" name="practice_rating" value="${num}" id="practice_${num}" class="scale-radio">
-                                            </div>
-                                            <div class="scale-number-row">
-                                                <span class="scale-number">${num}</span>
-                                            </div>
-                                            <div class="scale-label-row">
-                                                <span class="scale-label">${label}</span>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
-                            </div>
-                        </div>
-                        <div class="rating-instruction">请点击选择1-9之间的数字</div>
-                        <div class="rating-confirm-container">
-                            <button id="confirm-practice-rating-btn" class="confirm-rating-button" onclick="confirmPracticeRating()" disabled>
-                                确认评分
-                            </button>
-                        </div>
+                type: jsPsychCustomRatingScale,
+                question: `
+                    <div style="margin-bottom: 30px;">
+                        <h2 style="font-size: 36px; margin-bottom: 20px;">评分练习</h2>
+                        <p style="font-size: 20px; color: #ccc; margin-bottom: 20px;">请使用下面的量表进行评分，然后点击继续</p>
+                        <p style="font-size: 24px; color: white;">在进行情绪调节之后，你现在的消极情绪有多少？</p>
                     </div>
                 `,
-                choices: [],
+                labels: {
+                    1: '几乎没有',
+                    5: '中等',
+                    9: '有非常多'
+                },
+                instruction: '请点击选择1-9之间的数字',
+                button_label: '确认评分',
+                name: 'practice_rating',
                 data: {
                     trial_type: 'rating_instruction',
                     instruction_type: 'rating_practice'
-                },
-                on_load: function() {
-                    window.selectedPracticeRating = null;
-                    const startTime = performance.now();
-                    
-                    window.selectPracticeRating = function(value) {
-                        document.getElementById(`practice_${value}`).checked = true;
-                        document.querySelectorAll('.scale-item').forEach(item => {
-                            item.classList.remove('selected');
-                        });
-                        document.getElementById(`practice_${value}`).closest('.scale-item').classList.add('selected');
-                        window.selectedPracticeRating = value;
-                        
-                        const confirmBtn = document.getElementById('confirm-practice-rating-btn');
-                        confirmBtn.disabled = false;
-                        confirmBtn.classList.add('enabled');
-                    };
-                    
-                    window.confirmPracticeRating = function() {
-                        if (window.selectedPracticeRating !== null) {
-                            jsPsych.finishTrial({
-                                practice_emotion_rating: window.selectedPracticeRating,
-                                rt: performance.now() - startTime
-                            });
-                        }
-                    };
                 }
             });
             
