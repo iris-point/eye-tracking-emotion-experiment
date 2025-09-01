@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>情绪调节实验 | Emotion Regulation Experiment</title>
+    <title>实验 001</title>
     
     <!-- jsPsych CSS -->
     <link href="https://unpkg.com/jspsych@8.0.2/css/jspsych.css" rel="stylesheet" type="text/css" />
@@ -858,7 +858,7 @@
                 fullscreen_mode: true,
                 message: `
                     <div style="text-align: center; color: white;">
-                        <h1 style="margin-bottom: 30px;">情绪调节实验</h1>
+                        <h1 style="margin-bottom: 30px;">欢迎参与本次研究</h1>
                         <p style="font-size: 20px; margin-bottom: 30px;">点击下方按钮进入全屏模式开始实验</p>
                     </div>
                 `,
@@ -874,6 +874,9 @@
                         <h2>参与者信息 | Participant Information</h2>
                         <label for="participant_id">参与者编号 Participant ID *</label>
                         <input type="text" id="participant_id" name="participant_id" required placeholder="例如: P001">
+                        
+                        <label for="participant_name">姓名 Name *</label>
+                        <input type="text" id="participant_name" name="participant_name" required placeholder="请输入姓名...">
                         
                         <label for="age">年龄 Age *</label>
                         <input type="number" id="age" name="age" min="18" max="100" required placeholder="18-100">
@@ -897,6 +900,7 @@
                     // Store participant info globally
                     jsPsych.data.addProperties({
                         participant_id: data.response.participant_id,
+                        participant_name: data.response.participant_name,
                         age: data.response.age,
                         gender: data.response.gender,
                         notes: data.response.notes || '',
