@@ -1203,7 +1203,7 @@
                     </div>
                 `,
                 choices: ['保存数据并完成'],
-                button_html: '<button class="jspsych-btn" style="font-size: 24px; padding: 15px 50px;">%choice%</button>',
+                button_html: (choice) => `<button class="jspsych-btn" style="font-size: 24px; padding: 15px 50px;">${choice}</button>`,
                 data: {
                     trial_type: 'instruction',
                     instruction_type: 'experiment_end'
@@ -1239,7 +1239,7 @@
                     </div>
                 `,
                 choices: ['重新下载数据', '完成'],
-                button_html: '<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">%choice%</button>',
+                button_html: (choice) => `<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">${choice}</button>`,
                 data: {
                     trial_type: 'download_screen'
                 },
@@ -1266,7 +1266,7 @@
                                 </div>
                             `,
                             choices: ['重新下载数据', '完成'],
-                            button_html: '<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">%choice%</button>',
+                            button_html: (choice) => `<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">${choice}</button>`,
                             data: {
                                 trial_type: 'download_screen_repeat'
                             }
@@ -1684,7 +1684,7 @@
                     </div>
                 `,
                 choices: ['保存数据并完成'],
-                button_html: '<button class="jspsych-btn" style="font-size: 24px; padding: 15px 50px;">%choice%</button>',
+                button_html: (choice) => `<button class="jspsych-btn" style="font-size: 24px; padding: 15px 50px;">${choice}</button>`,
                 data: {
                     trial_type: 'instruction',
                     instruction_type: 'experiment_end'
@@ -1720,7 +1720,7 @@
                     </div>
                 `,
                 choices: ['重新下载数据', '完成'],
-                button_html: '<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">%choice%</button>',
+                button_html: (choice) => `<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">${choice}</button>`,
                 data: {
                     trial_type: 'download_screen'
                 },
@@ -1747,7 +1747,7 @@
                                 </div>
                             `,
                             choices: ['重新下载数据', '完成'],
-                            button_html: '<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">%choice%</button>',
+                            button_html: (choice) => `<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">${choice}</button>`,
                             data: {
                                 trial_type: 'download_screen_repeat'
                             }
