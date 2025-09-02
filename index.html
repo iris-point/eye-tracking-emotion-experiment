@@ -920,11 +920,25 @@
         function getAllImages() {
             const images = new Set();
             
-            // Add practice images
-            Object.values(PRACTICE_IMAGES).flat().forEach(img => images.add(img));
+            // Check URL parameter for test mode
+            const urlParams = new URLSearchParams(window.location.search);
+            const isTestMode = urlParams.get('test') === 'true';
             
-            // Add formal images
-            FORMAL_IMAGES.forEach(img => images.add(img));
+            if (isTestMode) {
+                // Test mode: only load required images
+                images.add('H(1).jpg');  // Practice high arousal
+                images.add('L(1).jpg');  // Practice low arousal
+                images.add('(1).jpg');   // Formal image 1
+                images.add('(2).jpg');   // Formal image 2
+                images.add('(3).jpg');   // Formal image 3
+            } else {
+                // Normal mode: load all images
+                // Add practice images
+                Object.values(PRACTICE_IMAGES).flat().forEach(img => images.add(img));
+                
+                // Add formal images
+                FORMAL_IMAGES.forEach(img => images.add(img));
+            }
             
             return Array.from(images);
         }
@@ -1269,65 +1283,56 @@
         
         function buildExperimentTimeline(jsPsych) {
             const timeline = [];
-            let totalBlocks = PRACTICE_DESIGN.length + FORMAL_DESIGN.filter(d => d !== 'REST').length;
-            let currentBlock = 0;
             
-            // TEST MODE: Skip to end if enabled
+            // TEST MODE: Use reduced image set
+            let practiceDesign = PRACTICE_DESIGN;
+            let formalDesign = FORMAL_DESIGN;
+            
             if (CONFIG.TEST_MODE) {
-                console.log('🧪 TEST MODE ENABLED - Skipping to save functionality');
+                console.log('🧪 TEST MODE ENABLED - Using reduced image set');
                 
-                // Add minimal test data
+                // Use only 2 practice images
+                practiceDesign = [
+                    { image: PRACTICE_IMAGES.high_arousal[0], strategy: STRATEGIES.COGNITIVE_REAPPRAISAL },
+                    { image: PRACTICE_IMAGES.low_arousal[0], strategy: STRATEGIES.COGNITIVE_REAPPRAISAL }
+                ];
+                
+                // Use only 3 formal images (no rest blocks)
+                formalDesign = [
+                    { image: '(1).jpg', strategy: STRATEGIES.COGNITIVE_REAPPRAISAL },
+                    { image: '(2).jpg', strategy: STRATEGIES.EXPRESSIVE_SUPPRESSION },
+                    { image: '(3).jpg', strategy: STRATEGIES.COGNITIVE_REAPPRAISAL }
+                ];
+                
+                // Add test mode indicator
                 jsPsych.data.addProperties({
-                    participant_id: 'TEST_001',
-                    participant_name: 'Test User',
-                    age: 25,
-                    gender: 'test',
-                    notes: 'Test mode data',
-                    experiment_date: new Date().toISOString(),
-                    test_mode: true
+                    test_mode: true,
+                    test_mode_timestamp: new Date().toISOString()
                 });
                 
-                // Add some dummy trial data
-                for (let i = 0; i < 5; i++) {
-                    jsPsych.data.write({
-                        trial_type: 'test_trial',
-                        trial_index: i,
-                        response: Math.floor(Math.random() * 9) + 1,
-                        rt: Math.random() * 2000 + 500,
-                        test_data: true,
-                        cogix_eye_tracking: {
-                            samples: Array(100).fill(null).map(() => ({
-                                x: Math.random() * 1920,
-                                y: Math.random() * 1080,
-                                t: Date.now() + Math.random() * 8000
-                            })),
-                            sample_count: 100,
-                            tracking_active: true,
-                            calibrated: true
-                        }
-                    });
-                }
-                
-                // Jump directly to end screens
+                // Show test mode warning
                 timeline.push({
                     type: jsPsychHtmlKeyboardResponse,
                     stimulus: `
                         <div style="text-align: center; color: white; padding: 50px;">
                             <h1 style="font-size: 48px; color: #ff9800;">⚠️ 测试模式 TEST MODE ⚠️</h1>
-                            <p style="font-size: 24px; margin: 30px 0;">跳过实验，直接测试保存功能</p>
-                            <p style="font-size: 20px; color: #aaa;">Skipping experiment to test save functionality</p>
-                            <p style="font-size: 18px; color: #4CAF50; margin-top: 40px;">按任意键继续到保存界面...</p>
+                            <p style="font-size: 24px; margin: 30px 0;">简化实验流程</p>
+                            <p style="font-size: 20px; color: #aaa;">Simplified experiment process</p>
+                            <p style="font-size: 18px; margin-top: 30px;">
+                                练习: 2张图片 | 正式: 3张图片<br>
+                                Practice: 2 images | Formal: 3 images
+                            </p>
+                            <p style="font-size: 18px; color: #4CAF50; margin-top: 40px;">按任意键继续...</p>
                         </div>
                     `,
                     choices: 'ALL_KEYS',
                     trial_duration: null
                 });
-                
-                // Skip to save screens directly
-                skipToSaveScreens(timeline, jsPsych);
-                
-                return timeline;
             }
+            
+            // Calculate total blocks for progress tracking
+            let totalBlocks = practiceDesign.length + formalDesign.filter(d => d !== 'REST').length;
+            let currentBlock = 0;
             
             // NORMAL MODE: Full experiment continues below
             // Enter fullscreen first
@@ -1549,7 +1554,7 @@
                     <div class="instruction-container">
                         <h2>练习部分</h2>
                         <p>接下来进行练习实验</p>
-                        <p>练习包含${PRACTICE_DESIGN.length}个试次</p>
+                        <p>练习包含${practiceDesign.length}个试次</p>
                         <p style="margin-top: 40px; font-size: 20px; opacity: 0.8;">按任意键开始练习</p>
                     </div>
                 `,
@@ -1557,7 +1562,7 @@
             });
             
             // Add practice trials
-            PRACTICE_DESIGN.forEach((design, index) => {
+            practiceDesign.forEach((design, index) => {
                 currentBlock++;
                 
                 // Progress update
@@ -1641,7 +1646,7 @@
             });
             
             // Add formal trials
-            FORMAL_DESIGN.forEach((design, index) => {
+            formalDesign.forEach((design, index) => {
                 if (design === 'REST') {
                     // Add rest break
                     timeline.push(createRestBreak());
