@@ -17,6 +17,7 @@
             height: 100vh;
             width: 100vw;
             cursor: auto;
+            color: white;  /* Default text color white */
         }
         
         /* Hide cursor when inactive */
@@ -28,38 +29,25 @@
             cursor: none !important;
         }
         
-        /* Full screen image display - prevent overflow */
+        /* Only affect image trials, not other content */
         .jspsych-content {
             padding: 0;
             overflow: hidden;
         }
         
-        .jspsych-image-keyboard-response-stimulus {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            width: 100vw;
-            padding: 0;
-            margin: 0;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
-        }
-        
-        .jspsych-image-keyboard-response-stimulus img,
-        .full-screen-image img {
+        /* Override jsPsych's default size limits for images */
+        img.jspsych-image-keyboard-response-stimulus,
+        canvas.jspsych-image-keyboard-response-stimulus {
+            position: fixed;
+            inset: 0;  /* Equivalent to top:0; right:0; bottom:0; left:0 */
             width: 100vw;
             height: 100vh;
-            object-fit: cover;
-            display: block;
+            max-width: 100vw;  /* Override jsPsych's default max-width */
+            max-height: 100vh;  /* Override jsPsych's default max-height */
+            object-fit: contain;  /* Keep aspect ratio, show entire image */
             margin: 0;
             padding: 0;
-            position: absolute;
-            top: 0;
-            left: 0;
-            z-index: 1;
+            background: #000;
         }
         
         .jspsych-display-element {
@@ -70,6 +58,12 @@
             width: 100vw;
             margin: 0;
             padding: 0;
+            color: white;  /* Ensure all jsPsych content has white text */
+        }
+        
+        /* Override jsPsych default text colors */
+        .jspsych-display-element * {
+            color: white;
         }
         
         /* Ensure content wrapper also uses the same background */
@@ -80,6 +74,7 @@
             width: 100%;
             height: 100%;
             max-width: none;
+            color: white;
         }
         
         .jspsych-content {
@@ -91,6 +86,7 @@
             flex-direction: column;
             justify-content: center;
             min-height: 100vh;
+            color: white;
         }
         
         /* Global button style */
@@ -592,6 +588,16 @@
     <script src="https://unpkg.com/@jspsych/plugin-call-function@2.0.0"></script>
     <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@2.0.0"></script>
     
+    <!-- Load Eye Tracking SDK -->
+    <script src="../dist/cogix-eye-tracking-core.js"></script>
+    
+    <!-- Load Eye Tracking Extension -->
+    <script src="../jspsych-extension/jsPsychExtensionCogixEyeTracking.js"></script>
+    
+    <!-- Load Eye Tracking Plugins -->
+    <script src="../jspsych-plugin/plugin-cogix-init-camera.js"></script>
+    <script src="../jspsych-plugin/plugin-cogix-calibrate.js"></script>
+    
     <script>
         // Custom 9-point rating scale plugin
         var jsPsychCustomRatingScale = (function () {
@@ -629,6 +635,20 @@
                         type: 'OBJECT',
                         default: {}
                     }
+                },
+                data: {
+                    /** The response time in milliseconds */
+                    rt: {
+                        type: 'INT'
+                    },
+                    /** The numeric response (1-9) */
+                    response: {
+                        type: 'INT'
+                    },
+                    /** The question that was presented */
+                    question: {
+                        type: 'STRING'
+                    }
                 }
             };
 
@@ -648,7 +668,7 @@
                     for (let num = 1; num <= 9; num++) {
                         const label = trial.labels[num] || '';
                         html += `
-                            <div class="scale-item" data-value="${num}">
+                            <div class="scale-item" data-value="${num}" id="scale-item-${num}">
                                 <div class="scale-radio-row">
                                     <input type="radio" name="${trial.name}" value="${num}" id="${trial.name}_${num}" class="scale-radio">
                                 </div>
@@ -664,8 +684,8 @@
                     html += `
                                 </div>
                             </div>
-                            <div class="rating-instruction">${trial.instruction}</div>
-                            <div class="rating-confirm-container">
+                            <div class="rating-instruction">请按数字键 1-9 选择评分</div>
+                            <div class="rating-confirm-container" style="display: none;">
                                 <button id="confirm-rating-btn" class="confirm-rating-button" disabled>
                                     ${trial.button_label}
                                 </button>
@@ -678,40 +698,54 @@
                     let selectedRating = null;
                     const startTime = performance.now();
 
-                    // Add click handlers to scale items
+                    // Function to select a rating
+                    const selectRating = (value) => {
+                        // Check the radio button
+                        display_element.querySelector(`#${trial.name}_${value}`).checked = true;
+                        
+                        // Remove previous selection
+                        display_element.querySelectorAll('.scale-item').forEach(el => {
+                            el.classList.remove('selected');
+                        });
+                        
+                        // Add selection to the item
+                        const selectedItem = display_element.querySelector(`#scale-item-${value}`);
+                        if (selectedItem) {
+                            selectedItem.classList.add('selected');
+                        }
+                        selectedRating = value;
+                        
+                        // Immediately end trial after selection
+                        setTimeout(() => {
+                            end_trial();
+                        }, 200); // Small delay for visual feedback
+                    };
+
+                    // Add keyboard listener for number keys 1-9
+                    const keyboardListener = (event) => {
+                        const key = event.key;
+                        if (key >= '1' && key <= '9') {
+                            const value = parseInt(key);
+                            selectRating(value);
+                        }
+                    };
+
+                    // Add click handlers to scale items (as backup)
                     display_element.querySelectorAll('.scale-item').forEach(item => {
                         item.addEventListener('click', function() {
                             const value = parseInt(this.dataset.value);
-                            
-                            // Check the radio button
-                            display_element.querySelector(`#${trial.name}_${value}`).checked = true;
-                            
-                            // Remove previous selection
-                            display_element.querySelectorAll('.scale-item').forEach(el => {
-                                el.classList.remove('selected');
-                            });
-                            
-                            // Add selection to clicked item
-                            this.classList.add('selected');
-                            selectedRating = value;
-                            
-                            // Enable the confirm button
-                            const confirmBtn = display_element.querySelector('#confirm-rating-btn');
-                            confirmBtn.disabled = false;
-                            confirmBtn.classList.add('enabled');
+                            selectRating(value);
                         });
                     });
 
-                    // Add click handler to confirm button
-                    const confirmBtn = display_element.querySelector('#confirm-rating-btn');
-                    confirmBtn.addEventListener('click', () => {
-                        if (selectedRating !== null) {
-                            end_trial();
-                        }
-                    });
+                    // Add keyboard event listener
+                    document.addEventListener('keydown', keyboardListener);
 
                     // Function to end trial
                     const end_trial = () => {
+                        // Remove keyboard listener
+                        document.removeEventListener('keydown', keyboardListener);
+                        
                         // Clear display
                         display_element.innerHTML = '';
 
@@ -811,12 +845,17 @@
         // CONFIGURATION
         // ====================================
         
+        // Check URL parameter for test mode
+        const urlParams = new URLSearchParams(window.location.search);
+        const isTestMode = urlParams.get('test') === 'true';
+        
         const CONFIG = {
             ASSET_PATH: './assets/images/',
             EXPERIMENT_NAME: 'emotion_regulation',
             REST_DURATION: 120000, // 2 minutes
             ALLOW_REST_SKIP: true,
-            SHOW_PROGRESS: true
+            SHOW_PROGRESS: true,
+            TEST_MODE: isTestMode  // Automatically set based on URL parameter
         };
         
         // ====================================
@@ -895,7 +934,7 @@
             };
         }
         
-        function createImagePresentation(imageName, strategy, blockNumber) {
+        function createImagePresentation(imageName, strategy, blockNumber, jsPsych) {
             return {
                 type: jsPsychImageKeyboardResponse,
                 stimulus: getImagePath(imageName),
@@ -903,14 +942,74 @@
                 trial_duration: 8000,
                 stimulus_width: null,  // Allow full width
                 stimulus_height: null,  // Allow full height
-                maintain_aspect_ratio: false,
+                maintain_aspect_ratio: true,
                 render_on_canvas: false,
+                extensions: [
+                    {
+                        type: jsPsychExtensionCogixEyeTracking,
+                        params: {
+                            targets: ['image']
+                        }
+                    }
+                ],
                 data: {
                     trial_type: 'image_presentation',
                     image_name: imageName,
                     strategy: strategy,
                     block_number: blockNumber,
                     trial_phase: 'stimulus'
+                },
+                on_start: function(trial) {
+                    // Record start timestamp for alignment
+                    trial.data.image_onset = performance.now();
+                    
+                    // Set background to black for stimulus images
+                    const displayElement = document.querySelector('.jspsych-display-element');
+                    if (displayElement) {
+                        displayElement.style.backgroundColor = '#000';
+                    }
+                    const contentWrapper = document.querySelector('.jspsych-content-wrapper');
+                    if (contentWrapper) {
+                        contentWrapper.style.backgroundColor = '#000';
+                    }
+                    const content = document.querySelector('.jspsych-content');
+                    if (content) {
+                        content.style.backgroundColor = '#000';
+                    }
+                },
+                on_finish: function(data) {
+                    // Record end timestamp
+                    data.image_offset = performance.now();
+                    data.actual_duration = data.image_offset - data.image_onset;
+                    
+                    // Restore original background color
+                    const displayElement = document.querySelector('.jspsych-display-element');
+                    if (displayElement) {
+                        displayElement.style.backgroundColor = '#252A3D';
+                    }
+                    const contentWrapper = document.querySelector('.jspsych-content-wrapper');
+                    if (contentWrapper) {
+                        contentWrapper.style.backgroundColor = '#252A3D';
+                    }
+                    const content = document.querySelector('.jspsych-content');
+                    if (content) {
+                        content.style.backgroundColor = '#252A3D';
+                    }
+                    
+                    // Eye tracking data is automatically added by the extension as cogix_eye_tracking
+                    // Check if we have eye tracking data
+                    if (data.cogix_eye_tracking && data.cogix_eye_tracking.samples) {
+                        data.gaze_samples_count = data.cogix_eye_tracking.sample_count;
+                        
+                        // Calculate sampling rate
+                        if (data.cogix_eye_tracking.sample_count > 0 && data.actual_duration > 0) {
+                            data.sampling_rate = (data.cogix_eye_tracking.sample_count / (data.actual_duration / 1000)).toFixed(2) + ' Hz';
+                        }
+                        
+                        console.log(`Image ${data.image_name}: ${data.gaze_samples_count} samples collected, tracking: ${data.cogix_eye_tracking.tracking_active}`);
+                    } else {
+                        console.log(`Image ${data.image_name}: No eye tracking data collected`);
+                    }
                 }
             };
         }
@@ -1017,7 +1116,7 @@
             trials.push(createPreparation());
             
             // 4. Image presentation
-            trials.push(createImagePresentation(design.image, design.strategy, blockNumber));
+            trials.push(createImagePresentation(design.image, design.strategy, blockNumber, jsPsych));
             
             // 5. Rating scale (user-controlled)
             trials.push(createRatingScale(design.image, design.strategy, blockNumber));
@@ -1026,6 +1125,99 @@
             trials.push(createBlankScreen());
             
             return trials;
+        }
+        
+        // Helper function to add save screens (used in both normal and test mode)
+        function skipToSaveScreens(timeline, jsPsych) {
+            // Exit fullscreen (if in fullscreen)
+            timeline.push({
+                type: jsPsychFullscreen,
+                fullscreen_mode: false
+            });
+            
+            // End message with button to complete
+            timeline.push({
+                type: jsPsychHtmlButtonResponse,
+                stimulus: `
+                    <div style="text-align: center; color: white;">
+                        <div style="font-size: 72px; margin-bottom: 50px;">实验结束</div>
+                        <div style="font-size: 36px; color: #ccc; margin-bottom: 50px;">再次感谢你的真诚配合！</div>
+                        <div style="font-size: 24px; color: #aaa; margin-bottom: 40px;">点击下方按钮保存数据并完成实验</div>
+                    </div>
+                `,
+                choices: ['保存数据并完成'],
+                button_html: '<button class="jspsych-btn" style="font-size: 24px; padding: 15px 50px;">%choice%</button>',
+                data: {
+                    trial_type: 'instruction',
+                    instruction_type: 'experiment_end'
+                },
+                on_load: function() {
+                    // Store jsPsych instance reference
+                    window.jsPsychInstance = jsPsych;
+                },
+                on_finish: function(data) {
+                    // Use setTimeout to ensure download happens after button click
+                    setTimeout(() => {
+                        const allData = window.jsPsychInstance.data.get();
+                        const participantId = allData.values()[0].participant_id || 'unknown';
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                        const filename = `${CONFIG.EXPERIMENT_NAME}_${participantId}_${timestamp}.csv`;
+                        
+                        // Trigger automatic download
+                        allData.localSave('csv', filename);
+                    }, 100);
+                }
+            });
+            
+            // Additional download screen
+            timeline.push({
+                type: jsPsychHtmlButtonResponse,
+                stimulus: `
+                    <div style="text-align: center; color: white; padding: 50px;">
+                        <h1 style="font-size: 56px; margin-bottom: 40px;">数据已自动下载</h1>
+                        <p style="font-size: 28px; margin-bottom: 30px;">数据文件已生成</p>
+                        <p style="font-size: 20px; color: #ccc; margin-bottom: 50px;">
+                            如果下载未开始，请点击下方按钮手动下载
+                        </p>
+                    </div>
+                `,
+                choices: ['重新下载数据', '完成'],
+                button_html: '<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">%choice%</button>',
+                data: {
+                    trial_type: 'download_screen'
+                },
+                on_load: function() {
+                    // Store data reference for manual download
+                    window.experimentData = window.jsPsychInstance.data.get();
+                    window.downloadFilename = `${CONFIG.EXPERIMENT_NAME}_${window.experimentData.values()[0].participant_id || 'unknown'}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+                },
+                on_finish: function(data) {
+                    if (data.response === 0) { // "Download Again" button
+                        // Trigger another download
+                        window.experimentData.localSave('csv', window.downloadFilename);
+                        
+                        // Stay on this screen by adding it again
+                        const downloadScreen = {
+                            type: jsPsychHtmlButtonResponse,
+                            stimulus: `
+                                <div style="text-align: center; color: white; padding: 50px;">
+                                    <h1 style="font-size: 56px; margin-bottom: 40px;">数据已重新下载</h1>
+                                    <p style="font-size: 28px; margin-bottom: 30px;">数据已重新生成</p>
+                                    <p style="font-size: 20px; color: #ccc; margin-bottom: 50px;">
+                                        您可以再次下载或点击完成结束
+                                    </p>
+                                </div>
+                            `,
+                            choices: ['重新下载数据', '完成'],
+                            button_html: '<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">%choice%</button>',
+                            data: {
+                                trial_type: 'download_screen_repeat'
+                            }
+                        };
+                        jsPsych.addNodeToEndOfTimeline(downloadScreen);
+                    }
+                }
+            });
         }
         
         // ====================================
@@ -1037,6 +1229,64 @@
             let totalBlocks = PRACTICE_DESIGN.length + FORMAL_DESIGN.filter(d => d !== 'REST').length;
             let currentBlock = 0;
             
+            // TEST MODE: Skip to end if enabled
+            if (CONFIG.TEST_MODE) {
+                console.log('🧪 TEST MODE ENABLED - Skipping to save functionality');
+                
+                // Add minimal test data
+                jsPsych.data.addProperties({
+                    participant_id: 'TEST_001',
+                    participant_name: 'Test User',
+                    age: 25,
+                    gender: 'test',
+                    notes: 'Test mode data',
+                    experiment_date: new Date().toISOString(),
+                    test_mode: true
+                });
+                
+                // Add some dummy trial data
+                for (let i = 0; i < 5; i++) {
+                    jsPsych.data.write({
+                        trial_type: 'test_trial',
+                        trial_index: i,
+                        response: Math.floor(Math.random() * 9) + 1,
+                        rt: Math.random() * 2000 + 500,
+                        test_data: true,
+                        cogix_eye_tracking: {
+                            samples: Array(100).fill(null).map(() => ({
+                                x: Math.random() * 1920,
+                                y: Math.random() * 1080,
+                                t: Date.now() + Math.random() * 8000
+                            })),
+                            sample_count: 100,
+                            tracking_active: true,
+                            calibrated: true
+                        }
+                    });
+                }
+                
+                // Jump directly to end screens
+                timeline.push({
+                    type: jsPsychHtmlKeyboardResponse,
+                    stimulus: `
+                        <div style="text-align: center; color: white; padding: 50px;">
+                            <h1 style="font-size: 48px; color: #ff9800;">⚠️ 测试模式 TEST MODE ⚠️</h1>
+                            <p style="font-size: 24px; margin: 30px 0;">跳过实验，直接测试保存功能</p>
+                            <p style="font-size: 20px; color: #aaa;">Skipping experiment to test save functionality</p>
+                            <p style="font-size: 18px; color: #4CAF50; margin-top: 40px;">按任意键继续到保存界面...</p>
+                        </div>
+                    `,
+                    choices: 'ALL_KEYS',
+                    trial_duration: null
+                });
+                
+                // Skip to save screens directly
+                skipToSaveScreens(timeline, jsPsych);
+                
+                return timeline;
+            }
+            
+            // NORMAL MODE: Full experiment continues below
             // Enter fullscreen first
             timeline.push({
                 type: jsPsychFullscreen,
@@ -1050,34 +1300,76 @@
                 button_label: '进入实验'
             });
             
+            // Initialize eye tracker connection
+            timeline.push({
+                type: jsPsychCogixInitCamera,
+                instructions: `
+                    <h2>眼动仪连接</h2>
+                    <p>请确保眼动仪已连接并正常运行</p>
+                    <ul style="text-align: left; display: inline-block;">
+                        <li>请确保眼动仪已经正确安装和连接</li>
+                        <li>保持舒适坐姿，距离屏幕约60cm</li>
+                    </ul>
+                `,
+                button_text: '连接眼动仪',
+                init_camera: true,
+                show_camera_preview: true,
+                auto_advance: false,
+                allow_retry: true,
+                allow_skip: false
+            });
+            
+            // Calibrate eye tracker
+            timeline.push({
+                type: jsPsychCogixCalibrate,
+                instructions: `
+                    <h2>眼动仪校准</h2>
+                    <p>现在需要校准眼动仪</p>
+                    <p><strong>请注视每个出现的点直到它消失</strong></p>
+                    <p>校准过程中请保持头部不动</p>
+                `,
+                button_text: '开始校准',
+                point_duration: 2000,
+                point_size: 20,
+                point_color: '#4CAF50',
+                background_color: '#252A3D',
+                show_feedback: true,
+                allow_recalibrate: true,
+                allow_skip: false,
+                start_tracking_after: true,
+                auto_fullscreen: false,  // Stay in fullscreen mode
+                auto_advance: true,
+                advance_delay: 2000
+            });
+            
             // Participant Information Form (now in fullscreen)
             timeline.push({
                 type: jsPsychSurveyHtmlForm,
                 preamble: '',
                 html: `
                     <div class="participant-form">
-                        <h2>参与者信息 | Participant Information</h2>
-                        <label for="participant_id">参与者编号 Participant ID *</label>
+                        <h2>参与者信息</h2>
+                        <label for="participant_id">参与者编号 *</label>
                         <input type="text" id="participant_id" name="participant_id" required placeholder="例如: P001">
                         
-                        <label for="participant_name">姓名 Name *</label>
+                        <label for="participant_name">姓名 *</label>
                         <input type="text" id="participant_name" name="participant_name" required placeholder="请输入姓名...">
                         
-                        <label for="age">年龄 Age *</label>
+                        <label for="age">年龄 *</label>
                         <input type="number" id="age" name="age" min="18" max="100" required placeholder="18-100">
                         
-                        <label for="gender">性别 Gender *</label>
+                        <label for="gender">性别 *</label>
                         <select id="gender" name="gender" required>
                             <option value="">请选择...</option>
-                            <option value="male">男 Male</option>
-                            <option value="female">女 Female</option>
+                            <option value="male">男</option>
+                            <option value="female">女</option>
                         </select>
                         
-                        <label for="notes">备注 Notes (可选 Optional)</label>
+                        <label for="notes">备注（可选）</label>
                         <input type="text" id="notes" name="notes" placeholder="任何相关信息...">
                     </div>
                 `,
-                button_label: '开始实验 Start Experiment',
+                button_label: '开始实验',
                 data: {
                     trial_type: 'participant_info'
                 },
@@ -1101,7 +1393,7 @@
                     <div class="loading-container">
                         <div class="loading-spinner"></div>
                         <div class="loading-text">准备加载实验材料</div>
-                        <div class="loading-subtext">Preparing to load experiment materials</div>
+                        <div class="loading-subtext">请稍候...</div>
                     </div>
                 `,
                 choices: 'NO_KEYS',
@@ -1121,7 +1413,7 @@
                     <div style="text-align: center; color: white;">
                         <div class="loading-spinner" style="margin: 0 auto 30px;"></div>
                         <div style="font-size: 24px; margin-bottom: 20px;">正在加载实验材料</div>
-                        <div style="font-size: 16px; color: #ccc;">Loading experiment materials...</div>
+                        <div style="font-size: 16px; color: #ccc;">请稍候...</div>
                     </div>
                 `,
                 error_message: '部分材料加载失败，实验将继续',
@@ -1333,20 +1625,87 @@
                 fullscreen_mode: false
             });
             
-            // End message
+            // End message with button to complete
             timeline.push({
-                type: jsPsychHtmlKeyboardResponse,
+                type: jsPsychHtmlButtonResponse,
                 stimulus: `
-                    <div class="text-instruction" style="flex-direction: column;">
+                    <div style="text-align: center; color: white;">
                         <div style="font-size: 72px; margin-bottom: 50px;">实验结束</div>
-                        <div style="font-size: 36px; color: #ccc;">再次感谢你的真诚配合！</div>
+                        <div style="font-size: 36px; color: #ccc; margin-bottom: 50px;">再次感谢你的真诚配合！</div>
+                        <div style="font-size: 24px; color: #aaa; margin-bottom: 40px;">点击下方按钮保存数据并完成实验</div>
                     </div>
                 `,
-                choices: 'NO_KEYS',
-                trial_duration: 3000,
+                choices: ['保存数据并完成'],
+                button_html: '<button class="jspsych-btn" style="font-size: 24px; padding: 15px 50px;">%choice%</button>',
                 data: {
                     trial_type: 'instruction',
                     instruction_type: 'experiment_end'
+                },
+                on_load: function() {
+                    // Store jsPsych instance reference
+                    window.jsPsychInstance = jsPsych;
+                },
+                on_finish: function(data) {
+                    // Use setTimeout to ensure download happens after button click
+                    setTimeout(() => {
+                        const allData = window.jsPsychInstance.data.get();
+                        const participantId = allData.values()[0].participant_id || 'unknown';
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                        const filename = `${CONFIG.EXPERIMENT_NAME}_${participantId}_${timestamp}.csv`;
+                        
+                        // Trigger automatic download
+                        allData.localSave('csv', filename);
+                    }, 100);
+                }
+            });
+            
+            // Additional download screen
+            timeline.push({
+                type: jsPsychHtmlButtonResponse,
+                stimulus: `
+                    <div style="text-align: center; color: white; padding: 50px;">
+                        <h1 style="font-size: 56px; margin-bottom: 40px;">数据已自动下载</h1>
+                        <p style="font-size: 28px; margin-bottom: 30px;">数据文件已生成</p>
+                        <p style="font-size: 20px; color: #ccc; margin-bottom: 50px;">
+                            如果下载未开始，请点击下方按钮手动下载
+                        </p>
+                    </div>
+                `,
+                choices: ['重新下载数据', '完成'],
+                button_html: '<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">%choice%</button>',
+                data: {
+                    trial_type: 'download_screen'
+                },
+                on_load: function() {
+                    // Store data reference for manual download
+                    window.experimentData = window.jsPsychInstance.data.get();
+                    window.downloadFilename = `${CONFIG.EXPERIMENT_NAME}_${window.experimentData.values()[0].participant_id || 'unknown'}_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`;
+                },
+                on_finish: function(data) {
+                    if (data.response === 0) { // "Download Again" button
+                        // Trigger another download
+                        window.experimentData.localSave('csv', window.downloadFilename);
+                        
+                        // Stay on this screen by adding it again
+                        const downloadScreen = {
+                            type: jsPsychHtmlButtonResponse,
+                            stimulus: `
+                                <div style="text-align: center; color: white; padding: 50px;">
+                                    <h1 style="font-size: 56px; margin-bottom: 40px;">数据已重新下载</h1>
+                                    <p style="font-size: 28px; margin-bottom: 30px;">数据已重新生成</p>
+                                    <p style="font-size: 20px; color: #ccc; margin-bottom: 50px;">
+                                        您可以再次下载或点击完成结束
+                                    </p>
+                                </div>
+                            `,
+                            choices: ['重新下载数据', '完成'],
+                            button_html: '<button class="jspsych-btn" style="font-size: 20px; padding: 12px 35px; margin: 0 20px;">%choice%</button>',
+                            data: {
+                                trial_type: 'download_screen_repeat'
+                            }
+                        };
+                        jsPsych.addNodeToEndOfTimeline(downloadScreen);
+                    }
                 }
             });
             
@@ -1359,47 +1718,25 @@
         
         function runExperiment() {
             const jsPsych = initJsPsych({
+                extensions: [
+                    {
+                        type: jsPsychExtensionCogixEyeTracking,
+                        params: {
+                            ws_url: 'wss://127.0.0.1:8443',  // Secure WebSocket connection
+                            auto_initialize: false,
+                            show_status: true,
+                            round_predictions: true,
+                            round_precision: 1
+                        }
+                    }
+                ],
                 on_finish: function() {
-                    // Save data
-                    const data = jsPsych.data.get();
-                    const participantId = data.values()[0].participant_id || 'unknown';
-                    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-                    const filename = `${CONFIG.EXPERIMENT_NAME}_${participantId}_${timestamp}`;
-                    
-                    // Save as CSV
-                    data.localSave('csv', `${filename}.csv`);
-                    
-                    // Calculate statistics
-                    const ratings = data.filter({trial_type: 'rating'}).values();
-                    const avgRating = ratings.length > 0 ? 
-                        ratings.reduce((sum, r) => sum + r.response.emotion_intensity, 0) / ratings.length : 0;
-                    
-                    const cognitiveTrials = ratings.filter(r => r.strategy === STRATEGIES.COGNITIVE_REAPPRAISAL);
-                    const naturalTrials = ratings.filter(r => r.strategy === STRATEGIES.NATURAL_VIEWING);
-                    
-                    const avgCognitive = cognitiveTrials.length > 0 ?
-                        cognitiveTrials.reduce((sum, r) => sum + r.response.emotion_intensity, 0) / cognitiveTrials.length : 0;
-                    
-                    const avgNatural = naturalTrials.length > 0 ?
-                        naturalTrials.reduce((sum, r) => sum + r.response.emotion_intensity, 0) / naturalTrials.length : 0;
-                    
-                    // Show completion screen with statistics
+                    // Final thank you screen
                     document.body.innerHTML = `
-                        <div style="padding: 50px; background: #252A3D; color: white; text-align: center;">
-                            <h1>实验完成！</h1>
-                            <p>感谢您的参与</p>
-                            <hr style="margin: 30px 0; border-color: rgba(255,255,255,0.2);">
-                            <h3>实验统计</h3>
-                            <p>完成评分次数: ${ratings.length}</p>
-                            <p>总体平均情绪强度: ${avgRating.toFixed(2)}</p>
-                            <p>认知重评平均: ${avgCognitive.toFixed(2)} (n=${cognitiveTrials.length})</p>
-                            <p>自然观看平均: ${avgNatural.toFixed(2)} (n=${naturalTrials.length})</p>
-                            <p>平均反应时间: ${Math.round(data.filter({trial_type: 'rating'}).select('rt').mean())} ms</p>
-                            <hr style="margin: 30px 0; border-color: rgba(255,255,255,0.2);">
-                            <p>数据已保存为: ${filename}.csv</p>
-                            <button onclick="location.reload()" style="padding: 10px 20px; font-size: 16px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
-                                重新开始
-                            </button>
+                        <div style="padding: 50px; background: #252A3D; color: white; text-align: center; min-height: 100vh; display: flex; flex-direction: column; justify-content: center;">
+                            <h1 style="font-size: 72px; margin-bottom: 30px;">谢谢！</h1>
+                            <p style="font-size: 36px; margin-bottom: 50px;">感谢您的参与！</p>
+                            <p style="font-size: 24px; color: #ccc;">您的数据已保存</p>
                         </div>
                     `;
                 }
