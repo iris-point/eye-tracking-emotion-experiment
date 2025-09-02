@@ -565,6 +565,49 @@
         .jspsych-content {
             z-index: 1;
         }
+        
+        /* Remove any wrapper padding/margins in fullscreen */
+        :root:fullscreen body,
+        :root:fullscreen .jspsych-display-element,
+        :root:fullscreen .jspsych-content-wrapper,
+        :root:fullscreen .jspsych-content {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100vw !important;
+            height: 100dvh !important;  /* better than 100vh in fullscreen */
+            overflow: hidden !important;
+        }
+        
+        /* Make the stimulus truly fill, and remove baseline gap */
+        img.jspsych-image-keyboard-response-stimulus,
+        canvas.jspsych-image-keyboard-response-stimulus,
+        img#jspsych-image-keyboard-response-stimulus {
+            position: fixed !important;
+            inset: 0 !important;               /* top/right/bottom/left: 0 */
+            width: auto !important;            /* Let width adjust to maintain aspect ratio */
+            height: 100dvh !important;         /* Full viewport height */
+            max-width: 100vw !important;       /* Don't exceed viewport width */
+            max-height: 100dvh !important;     /* Don't exceed viewport height */
+            display: block !important;          /* kills the inline baseline gap */
+            background: #000;
+            object-fit: contain !important;     /* Maintain aspect ratio */
+            aspect-ratio: auto !important;      /* Preserve original aspect ratio */
+            margin: 0 auto !important;          /* Center horizontally */
+            left: 50% !important;               /* Position from center */
+            transform: translateX(-50%) !important; /* Center adjustment */
+        }
+        
+        /* Safari/WebKit fullscreen alias (just in case) */
+        :-webkit-full-screen body,
+        :-webkit-full-screen .jspsych-display-element,
+        :-webkit-full-screen .jspsych-content-wrapper,
+        :-webkit-full-screen .jspsych-content {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100vw !important;
+            height: 100dvh !important;
+            overflow: hidden !important;
+        }
     </style>
 </head>
 <body>
