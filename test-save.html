@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试保存功能 - Test Save Function</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+        h1 {
+            margin: 0 0 20px;
+            font-size: 32px;
+        }
+        .warning {
+            background: rgba(255, 152, 0, 0.2);
+            border: 2px solid #ff9800;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 30px 0;
+        }
+        .warning h2 {
+            color: #ff9800;
+            margin: 0 0 10px;
+            font-size: 24px;
+        }
+        .info {
+            background: rgba(76, 175, 80, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .info h3 {
+            color: #4CAF50;
+            margin: 0 0 10px;
+        }
+        .info ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .info li {
+            margin: 5px 0;
+        }
+        .button {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-size: 18px;
+            margin: 10px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+        .button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.3);
+        }
+        .button.secondary {
+            background: #2196F3;
+        }
+        .button.secondary:hover {
+            background: #1976D2;
+            box-shadow: 0 10px 30px rgba(33, 150, 243, 0.3);
+        }
+        code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 测试保存功能</h1>
+        <h1>Test Save Functionality</h1>
+        
+        <div class="warning">
+            <h2>⚠️ 测试模式 TEST MODE</h2>
+            <p>此页面用于快速测试数据保存功能，跳过整个实验流程</p>
+            <p>This page is for quickly testing the save functionality, skipping the entire experiment</p>
+        </div>
+        
+        <div class="info">
+            <h3>测试内容 What will be tested:</h3>
+            <ul>
+                <li>生成测试数据 / Generate test data</li>
+                <li>CSV文件下载 / CSV file download</li>
+                <li>文件命名格式 / File naming format</li>
+                <li>重新下载功能 / Re-download function</li>
+            </ul>
+        </div>
+        
+        <div class="info">
+            <h3>测试数据包含 Test data includes:</h3>
+            <ul>
+                <li>参与者ID: TEST_001</li>
+                <li>5个模拟试次 / 5 simulated trials</li>
+                <li>模拟眼动数据 / Simulated eye tracking data</li>
+                <li>随机评分数据 / Random rating data</li>
+            </ul>
+        </div>
+        
+        <div style="margin-top: 40px;">
+            <button class="button" onclick="startTest()">
+                开始测试 / Start Test
+            </button>
+            <a href="index.html" class="button secondary">
+                返回正式实验 / Back to Experiment
+            </a>
+        </div>
+        
+        <div style="margin-top: 30px; font-size: 14px; opacity: 0.8;">
+            <p>提示：测试模式已在 <code>CONFIG.TEST_MODE</code> 中启用</p>
+            <p>Tip: Test mode is enabled in <code>CONFIG.TEST_MODE</code></p>
+        </div>
+    </div>
+    
+    <script>
+        function startTest() {
+            // Redirect to index.html with test mode parameter
+            // We'll modify the index.html to check for URL parameter
+            window.location.href = 'index.html?test=true';
+        }
+    </script>
+</body>
+</html>
